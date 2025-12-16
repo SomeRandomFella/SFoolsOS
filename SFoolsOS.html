@@ -143,28 +143,24 @@
         themes: [],
       };
 
+      let gameWindow = null;
+
       const launchListener = (e) => {
         if (e.key === "Enter") {
-          const iframe = document.createElement("iframe");
-          iframe.classList.add("delete-me");
-          iframe.srcdoc = html;
-          iframe.allowFullscreen = true;
-          iframe.sandbox =
-            "allow-scripts allow-same-origin allow-popups allow-pointer-lock";
-          iframe.setAttribute("allow", "fullscreen");
-
-          root.appendChild(iframe);
-          iframe.requestFullscreen();
-        }
-      };
-
-      const deleteiframe = (e) => {
-        if (!document.fullscreenElement) {
-          const deleteMe = document.querySelector(".delete-me");
-          if (deleteMe) deleteMe.remove();
-          log("Game aborted", "info");
+          gameWindow = window.open("", "_blank");
           loadTyper();
-          return document.removeEventListener("fullscreenchange", deleteiframe);
+
+          if (gameWindow) {
+            gameWindow.document.open();
+            gameWindow.document.write(html);
+            gameWindow.document.close();
+
+            setTimeout(() => {
+              if (gameWindow.document.documentElement.requestFullscreen) {
+                gameWindow.document.documentElement.requestFullscreen();
+              }
+            }, 1000);
+          }
         }
       };
 
@@ -177,7 +173,7 @@ help <command> - shows the list of commands or can help with certain commands
 cd <dir> - navigate to a section (e.g cd games)
 ls <page> - see all the current files in the dir and use pages for dirs with lots of files
 cloak - cloaks the tab
-game - open HTML5 games
+game - open HTML5 games by numbered id
 cat - open files
 chat <room_id> <username> - join a chat room
 exit - exit chat room
@@ -404,8 +400,6 @@ all dirs:
                   document.addEventListener("keydown", launchListener, {
                     once: true,
                   });
-                  document.addEventListener("fullscreenchange", deleteiframe);
-                  loadTyper();
                 })
                 .catch((err) => {
                   log(`ERROR: ${err}`, "error");
