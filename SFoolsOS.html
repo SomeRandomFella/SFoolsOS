@@ -323,7 +323,10 @@ all dirs:
 
                 log(`id | name`);
                 if (stuff[currentPage]) {
-                  stuff[currentPage].forEach((game) => {
+                  const sortedGames = stuff[currentPage].sort((a, b) =>
+                    a.name.localeCompare(b.name)
+                  );
+                  sortedGames.forEach((game) => {
                     const thingidk = `${game.id}   |${game.name}`;
                     log(thingidk, "margin");
                   });
