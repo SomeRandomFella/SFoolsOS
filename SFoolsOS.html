@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>SFoolsOS</title>
+    <link
+      rel="icon"
+      href="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQvELFNNShrmmkbsnODhEEUZ8tLqch8tQENyw&s"
+      type="image/png"
+    />
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+  </head>
+  <style>
+    :root {
+      --background-color: black;
+      --font-color: white;
+    }
+    * {
+      font-family: "DejaVu Sans Mono", "Liberation Mono", "Monospace", monospace;
+      color: var(--font-color);
+      margin: 0;
+    }
+
+    body {
+      background-color: var(--background-color);
+    }
+
+    ::selection {
+      background: var(--font-color);
+      color: black;
+    }
+
+    pre {
+      line-height: 1.1;
+      margin: 20px 0px !important;
+    }
+
+    .typer {
+      display: flex;
+      white-space: pre;
+    }
+
+    .cursor {
+      display: inline-block;
+      width: 0.6em;
+      height: 1.2em;
+      margin-left: 2px;
+      background-color: var(--font-color);
+      animation: blink 1s steps(1) infinite;
+      vertical-align: bottom;
+      margin: 0 !important;
+    }
+
+    @keyframes blink {
+      50% {
+        opacity: 0;
+      }
+    }
+
+    .error {
+      color: red;
+      font-weight: bold;
+    }
+
+    .info {
+      opacity: 0.6;
+    }
+
+    .warn {
+      color: #facc15;
+      font-weight: bold;
+    }
+
+    .marginless {
+      margin: 0 !important;
+    }
+  </style>
+  <body>
+    <div id="root"></div>
+    <div id="chat-container" style="display: none">
+      <pre id="chat-header" style="margin: 20px 0 5px 0">
+[CHAT] <span id="chat-room">ID: </span> | <span id="chat-users">Users: 0</span>
+      </pre>
+      <div id="chat-messages" style="margin: 0; padding: 0"></div>
+      <div id="chat-input-container" style="display: flex; margin-top: 10px">
+        <pre style="margin: 0">&gt; </pre>
+        <input
+          type="text"
+          id="chat-input"
+          style="
+            flex: 1;
+            background: transparent;
+            color: white;
+            border: none;
+            outline: none;
+            font-family: inherit;
+            padding: 0;
+            margin: 0;
+          "
+        />
+      </div>
+    </div>
+
+    <script>
+      const firebaseConfig = {
+        apiKey: "AIzaSyDbrrl3aBuDzH4EW-OQpK4YI3lnGvkKE8Q",
+        authDomain: "sfoolsos.firebaseapp.com",
+        databaseURL: "https://sfoolsos-default-rtdb.firebaseio.com/",
+        projectId: "sfoolsos",
+        storageBucket: "sfoolsos.appspot.com",
+        messagingSenderId: "370745217828",
+        appId: "1:370745217828:web:5cd145286748267bc2d9b1",
+      };
+
+      firebase.initializeApp(firebaseConfig);
+      const db = firebase.database();
+
+      const root = document.getElementById("root");
+      let pc = null;
+      let channel = null;
+      let roomId = null;
+      let username = null;
+      let fatalError = false;
+      let currentDir = "root";
+      let html;
+      let currentTerminalHandler = null;
+      let inChatMode = false;
+      let chatInputHandler = null;
+      const rootLink =
+        "https://cdn.jsdelivr.net/gh/picklechiplover23/htmlgames@latest/";
+      const directories = ["root", "games", "themes"];
+      const files = {
+        root: [
+          {
+            name: "discord",
+            extension: ".txt",
+            content:
+              "join discord server for stuff https://discord.gg/F9wfAcBGsM",
+          },
+        ],
+        games: [],
+        themes: [],
+      };
+
+      const launchListener = (e) => {
+        if (e.key === "Enter") {
+          const iframe = document.createElement("iframe");
+          iframe.classList.add("delete-me");
+          iframe.srcdoc = html;
+          iframe.allowFullscreen = true;
+          iframe.sandbox =
+            "allow-scripts allow-same-origin allow-popups allow-pointer-lock";
+          iframe.setAttribute("allow", "fullscreen");
+
+          root.appendChild(iframe);
+          iframe.requestFullscreen();
+        }
+      };
+
+      const deleteiframe = (e) => {
+        if (!document.fullscreenElement) {
+          const deleteMe = document.querySelector(".delete-me");
+          if (deleteMe) deleteMe.remove();
+          log("Game aborted", "info");
+          loadTyper();
+          return document.removeEventListener("fullscreenchange", deleteiframe);
+        }
+      };
+
+      const commands = {
+        help: (args) => {
+          if (args.length === 0) {
+            log(
+              `
+help <command> - shows the list of commands or can help with certain commands
+cd <dir> - navigate to a section (e.g cd games)
+ls <page> - see all the current files in the dir and use pages for dirs with lots of files
+cloak - cloaks the tab
+game - open HTML5 games
+cat - open files
+chat <room_id> <username> - join a chat room
+exit - exit chat room
+clear - clears console
+                                    `,
+              "info"
+            );
+          } else if (args[0] === "cd") {
+            log(
+              `
+cd - use cd to go into a specific dir
+
+all dirs:
+
+-root
+
+-games
+
+-themes
+                                     `,
+              "info"
+            );
+          } else {
+            log(`no specific help for '${args[0]}'`, "info");
+          }
+
+          loadTyper();
+        },
+
+        cd: (args) => {
+          if (!args[0]) {
+            log("cd: missing directory", "warn");
+            loadTyper();
+            return;
+          }
+          const dir = args[0];
+          if (currentDir === dir) {
+            log("cd: already in dir", "warn");
+            loadTyper();
+            return;
+          }
+          if (directories.includes(dir)) {
+            currentDir = dir;
+            init();
+          } else {
+            log(`cd: unknown directory '${dir}'`, "warn");
+            loadTyper();
+          }
+        },
+
+        chat: async (args) => {
+          if (args.length < 2) {
+            log("Usage: chat ROOM_ID USERNAME", "warn");
+            loadTyper();
+            return;
+          }
+
+          const room = args[0];
+          const user = args[1];
+
+          username = user;
+          roomId = room;
+
+          if (currentTerminalHandler) {
+            document.removeEventListener("keydown", currentTerminalHandler);
+            currentTerminalHandler = null;
+          }
+
+          inChatMode = true;
+          document.getElementById("chat-container").style.display = "block";
+          document.getElementById("chat-room").textContent = "ID: " + roomId;
+
+          log("Press ESC to exit chat", "info");
+
+          try {
+            await joinRoom(roomId, username);
+
+            const inputBox = document.getElementById("chat-input");
+            inputBox.focus();
+
+            if (chatInputHandler) {
+              inputBox.removeEventListener("keydown", chatInputHandler);
+            }
+
+            chatInputHandler = (e) => {
+              e.stopPropagation();
+
+              if (e.key === "Escape") {
+                leaveChat();
+                log("Exited chat room", "info");
+                loadTyper();
+                return;
+              }
+
+              if (e.key === "Enter" && inputBox.value.trim() !== "") {
+                const msg = inputBox.value.trim();
+                const payload = JSON.stringify({ username, message: msg });
+
+                if (channel && channel.readyState === "open") {
+                  channel.send(payload);
+                  addMessage(username, msg);
+                } else {
+                  db.ref(`rooms/${roomId}/messages`).push({
+                    username: username,
+                    message: msg,
+                    timestamp: firebase.database.ServerValue.TIMESTAMP,
+                  });
+                  addMessage(username, msg);
+                }
+                inputBox.value = "";
+              }
+            };
+
+            inputBox.addEventListener("keydown", chatInputHandler);
+          } catch (err) {
+            addSystemMessage(`Chat error: ${err.message}`);
+            inChatMode = false;
+            loadTyper();
+          }
+        },
+
+        exit: () => {
+          if (inChatMode) {
+            leaveChat();
+            log("Exited chat room", "info");
+          } else {
+            log("Not in chat mode", "warn");
+          }
+          loadTyper();
+        },
+
+        clear: () => {
+          init();
+        },
+
+        ls: (args) => {
+          const currentFiles = files[currentDir];
+          if (currentDir === "games") {
+            loadJSON()
+              .then((stuff) => {
+                const pages = Object.keys(stuff).length;
+                const currentPage = args[0] || 1;
+
+                log(`id | name`);
+                if (stuff[currentPage]) {
+                  stuff[currentPage].forEach((game) => {
+                    const thingidk = `${game.id}   |${game.name}`;
+                    log(thingidk, "margin");
+                  });
+                  log(`(page ${currentPage} out of ${pages})`, "info");
+                } else {
+                  log(`Page ${currentPage} not found`, "warn");
+                }
+                loadTyper();
+              })
+              .catch((err) => {
+                log(`ERROR: ${err}`, "error");
+                loadTyper();
+              });
+          } else {
+            const names = currentFiles
+              .map((f) => f.name + f.extension)
+              .join("  ");
+            log(names || "No files", "info");
+            loadTyper();
+          }
+        },
+
+        cloak: () => {
+          document.title = "Home - Google Drive";
+
+          let favicon = document.querySelector("link[rel~='icon']");
+
+          favicon.href =
+            "https://ssl.gstatic.com/images/branding/product/1x/drive_2020q4_48dp.png";
+          log("cloaked!");
+          loadTyper();
+        },
+
+        cat: (args) => {
+          if (currentDir === "games") {
+            log(
+              "ERROR: cat cannot read html files, if you meant to open the file use 'game' instead",
+              "error"
+            );
+            return loadTyper();
+          }
+          const file = args[0];
+          const currentFiles = files[currentDir];
+          const theFile = currentFiles.find(
+            (f) => f.name + f.extension === file
+          );
+
+          if (!file || !theFile) {
+            log("cat: file not found", "warn");
+            loadTyper();
+          } else {
+            log(theFile.content, "info");
+            loadTyper();
+          }
+        },
+
+        game: (args) => {
+          if (currentDir !== "games") {
+            log("games: not in games dir", "warn");
+            loadTyper();
+            return;
+          }
+          const game = args[0];
+          if (!game) {
+            log("game: no game specified", "warn");
+            loadTyper();
+          } else {
+            const gameNumber = parseInt(game, 10);
+
+            if (!isNaN(gameNumber)) {
+              return loadGame(gameNumber)
+                .then((gameHtml) => {
+                  log(`To launch game press "Enter"`, "info");
+                  html = gameHtml;
+                  document.addEventListener("keydown", launchListener, {
+                    once: true,
+                  });
+                  document.addEventListener("fullscreenchange", deleteiframe);
+                  loadTyper();
+                })
+                .catch((err) => {
+                  log(`ERROR: ${err}`, "error");
+                  loadTyper();
+                });
+            }
+
+            log(`${game}: command not found`, "error");
+            loadTyper();
+          }
+        },
+      };
+
+      window.addEventListener("beforeunload", () => {
+        if (roomId && username) {
+          db.ref(`rooms/${roomId}/users/${username}`).remove();
+        }
+      });
+
+      window.addEventListener("DOMContentLoaded", () => {
+        init();
+      });
+
+      function init() {
+        root.innerHTML = ``;
+        log("DOM INITIALIZED.");
+        setTimeout(() => {
+          log("Loading modules...");
+        }, 300);
+        setTimeout(() => {
+          log(String.raw`
+   ______     ______   ______     ______     __         ______
+  /\  ___\   /\  ___\ /\  __ \   /\  __ \   /\ \       /\  ___\
+  \ \___  \  \ \  __\ \ \ \/\ \  \ \ \/\ \  \ \ \____  \ \___  \
+   \/\_____\  \ \_\    \ \_____\  \ \_____\  \ \_____\  \/\_____\
+    \/_____/   \/_/     \/_____/   \/_____/   \/_____/   \/_____/
+                                        `);
+          log('for list of commands type "help"', "info");
+          log("warn: this is a beta version, report issues to amir", "warn");
+          loadTyper();
+        }, 700);
+      }
+
+      function log(text, type) {
+        const consoleText = document.createElement("pre");
+        consoleText.textContent = text;
+
+        switch (type) {
+          case "info":
+            consoleText.classList.add("info");
+            break;
+          case "error":
+            consoleText.classList.add("error");
+            break;
+          case "warn":
+            consoleText.classList.add("warn");
+            break;
+          case "margin":
+            consoleText.classList.add("marginless");
+            break;
+          default:
+            break;
+        }
+        root.appendChild(consoleText);
+        window.scrollTo(0, document.body.scrollHeight);
+      }
+
+      function checkInput(input) {
+        const trimmed = input.trim();
+
+        if (!trimmed) {
+          loadTyper();
+        } else {
+          const [cmd, ...args] = trimmed.split(/\s+/);
+          if (commands[cmd]) commands[cmd](args);
+          else {
+            log(`${cmd}: command not found`, "error");
+            loadTyper();
+          }
+        }
+      }
+
+      function loadTyper() {
+        if (inChatMode) return;
+
+        const typingDiv = document.createElement("div");
+        typingDiv.classList.add("typer");
+
+        const nontype = document.createElement("div");
+        const mainUsername = localStorage.getItem("username");
+        nontype.textContent = `${mainUsername || "guest"}@host:${
+          currentDir === "root" ? "~" : currentDir || "~"
+        }$ `;
+
+        const typing = document.createElement("div");
+        typing.classList.add("typer");
+        typing.innerHTML = `<span class="input"></span><span class="cursor"></span>`;
+
+        const input = typing.querySelector(".input");
+        const cursor = typing.querySelector(".cursor");
+
+        const handleTerminalLine = (e) => {
+          if (inChatMode) return;
+
+          if (e.key.length === 1) input.textContent += e.key;
+          else if (e.key === "Backspace")
+            input.textContent = input.textContent.slice(0, -1);
+          else if (e.key === "Enter") {
+            cursor.classList.remove("cursor");
+            document.removeEventListener("keydown", handleTerminalLine);
+            currentTerminalHandler = null;
+            checkInput(input.textContent);
+            window.scrollTo(0, document.body.scrollHeight);
+          }
+        };
+
+        currentTerminalHandler = handleTerminalLine;
+        document.addEventListener("keydown", handleTerminalLine);
+
+        typingDiv.appendChild(nontype);
+        typingDiv.appendChild(typing);
+        root.appendChild(typingDiv);
+      }
+
+      async function loadJSON() {
+        try {
+          const response = await fetch(`${rootLink}games.json`);
+          if (!response.ok) throw new Error("network error");
+          const data = await response.json();
+          return data;
+        } catch (err) {
+          throw new Error(`Failed to load games: ${err.message}`);
+        }
+      }
+
+      async function loadGame(id) {
+        try {
+          const response = await fetch(`${rootLink}games/${id}.html`);
+          if (!response.ok) throw new Error("network error");
+          const data = await response.text();
+          return data;
+        } catch (err) {
+          throw new Error(`Failed to load game: ${err.message}`);
+        }
+      }
+
+      (function () {
+        const debug = new Function("debugger");
+        setInterval(debug, 100);
+      })();
+
+      document.addEventListener("keydown", function (e) {
+        if (e.keyCode === 123) {
+          e.preventDefault();
+          return false;
+        }
+
+        if (e.ctrlKey && e.shiftKey && e.keyCode === 73) {
+          e.preventDefault();
+          return false;
+        }
+
+        if (e.ctrlKey && e.shiftKey && e.keyCode === 74) {
+          e.preventDefault();
+          return false;
+        }
+
+        if (e.ctrlKey && e.shiftKey && e.keyCode === 67) {
+          e.preventDefault();
+          return false;
+        }
+
+        if (e.ctrlKey && e.keyCode === 85) {
+          e.preventDefault();
+          return false;
+        }
+
+        if (e.key === "F12") {
+          e.preventDefault();
+          return false;
+        }
+      });
+
+      document.addEventListener("contextmenu", function (e) {
+        e.preventDefault();
+        return false;
+      });
+
+      async function joinRoom(existingRoomId, newUsername) {
+        roomId = existingRoomId;
+        username = newUsername;
+
+        const usersRef = db.ref(`rooms/${roomId}/users`);
+        const userRef = usersRef.child(username);
+
+        const roomSnapshot = await usersRef.get();
+        const existingUsers = roomSnapshot.exists()
+          ? Object.keys(roomSnapshot.val())
+          : [];
+        const isFirstUser = existingUsers.length === 0;
+
+        await userRef.set({
+          joined: firebase.database.ServerValue.TIMESTAMP,
+          online: true,
+        });
+
+        userRef.onDisconnect().remove();
+
+        const roomRef = db.ref(`rooms/${roomId}`);
+        usersRef.onDisconnect().remove();
+
+        usersRef.on("value", (snapshot) => {
+          if (!snapshot.exists()) {
+            roomRef.remove();
+          }
+        });
+
+        setupWebRTC(isFirstUser);
+        listenForUsers();
+        listenForMessages();
+      }
+
+      function leaveRoom() {
+        if (roomId && username) {
+          db.ref(`rooms/${roomId}/users/${username}`).remove();
+          if (pc) {
+            pc.close();
+          }
+          pc = null;
+          channel = null;
+          roomId = null;
+          username = null;
+        }
+      }
+
+      function setupWebRTC(isCreator) {
+        pc = new RTCPeerConnection({
+          iceServers: [
+            { urls: "stun:stun.l.google.com:19302" },
+            { urls: "stun:stun1.l.google.com:19302" },
+          ],
+        });
+
+        if (isCreator) {
+          channel = pc.createDataChannel("chat");
+          channel.onopen = () => {
+            addSystemMessage("Chat ready");
+          };
+          channel.onmessage = (e) => {
+            try {
+              const data = JSON.parse(e.data);
+              addMessage(data.username, data.message);
+            } catch {
+              addMessage("Peer", e.data);
+            }
+          };
+        } else {
+          pc.ondatachannel = (e) => {
+            channel = e.channel;
+            channel.onopen = () => {
+              addSystemMessage("Connected");
+            };
+            channel.onmessage = (e) => {
+              try {
+                const data = JSON.parse(e.data);
+                addMessage(data.username, data.message);
+              } catch {
+                addMessage("Peer", e.data);
+              }
+            };
+          };
+        }
+
+        pc.onicecandidate = (event) => {
+          if (event.candidate) {
+            db.ref(`rooms/${roomId}/candidates/${username}_${Date.now()}`).set(
+              JSON.stringify(event.candidate)
+            );
+          }
+        };
+
+        pc.onconnectionstatechange = () => {
+          if (pc.connectionState === "connected") {
+            addSystemMessage("Peer connected");
+          } else if (pc.connectionState === "disconnected") {
+            addSystemMessage("Peer disconnected");
+          }
+        };
+
+        db.ref(`rooms/${roomId}/candidates`).on("child_added", (snapshot) => {
+          const candidate = JSON.parse(snapshot.val());
+          if (candidate && pc && pc.remoteDescription) {
+            pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(() => {});
+          }
+        });
+
+        if (isCreator) createOffer();
+        else listenForOffer();
+      }
+
+      async function createOffer() {
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        db.ref(`rooms/${roomId}/offer`).set(JSON.stringify(offer));
+
+        db.ref(`rooms/${roomId}/answer`).on("value", (snapshot) => {
+          const answer = snapshot.val();
+          if (answer && pc) {
+            pc.setRemoteDescription(
+              new RTCSessionDescription(JSON.parse(answer))
+            ).catch(() => {});
+          }
+        });
+      }
+
+      async function listenForOffer() {
+        db.ref(`rooms/${roomId}/offer`).on("value", async (snapshot) => {
+          const offer = snapshot.val();
+          if (!offer || !pc) return;
+
+          await pc.setRemoteDescription(
+            new RTCSessionDescription(JSON.parse(offer))
+          );
+          const answer = await pc.createAnswer();
+          await pc.setLocalDescription(answer);
+          db.ref(`rooms/${roomId}/answer`).set(JSON.stringify(answer));
+        });
+      }
+
+      let previousUsers = [];
+      function listenForUsers() {
+        if (!roomId) return;
+        db.ref(`rooms/${roomId}/users`).on("value", (snapshot) => {
+          const usersData = snapshot.val();
+          const users = usersData ? Object.keys(usersData) : [];
+
+          document.getElementById("chat-users").textContent =
+            "Users: " + users.length;
+
+          users.forEach((user) => {
+            if (!previousUsers.includes(user) && previousUsers.length > 0) {
+              addSystemMessage(`${user} joined the room`);
+            }
+          });
+
+          previousUsers.forEach((user) => {
+            if (!users.includes(user)) {
+              addSystemMessage(`${user} left the room`);
+            }
+          });
+
+          previousUsers = users;
+        });
+      }
+
+      function listenForMessages() {
+        if (!roomId) return;
+        db.ref(`rooms/${roomId}/messages`).on("child_added", (snapshot) => {
+          const data = snapshot.val();
+          if (data && data.username !== username) {
+            addMessage(data.username, data.message);
+          }
+        });
+      }
+
+      function addMessage(sender, text) {
+        const messagesDiv = document.getElementById("chat-messages");
+        const msgDiv = document.createElement("pre");
+        msgDiv.style.margin = "0";
+        msgDiv.innerHTML = `<span style="color: lightgreen">@${sender}</span> ${text}`;
+        messagesDiv.appendChild(msgDiv);
+        window.scrollTo(0, document.body.scrollHeight);
+      }
+
+      function addSystemMessage(text) {
+        const messagesDiv = document.getElementById("chat-messages");
+        const msgDiv = document.createElement("pre");
+        msgDiv.style.margin = "0";
+        msgDiv.innerHTML = `<span style="color: yellow">* ${text}</span>`;
+        messagesDiv.appendChild(msgDiv);
+        window.scrollTo(0, document.body.scrollHeight);
+      }
+
+      function leaveChat() {
+        leaveRoom();
+        document.getElementById("chat-container").style.display = "none";
+        inChatMode = false;
+
+        const inputBox = document.getElementById("chat-input");
+        if (chatInputHandler) {
+          inputBox.removeEventListener("keydown", chatInputHandler);
+          chatInputHandler = null;
+        }
+
+        document.getElementById("chat-messages").innerHTML = "";
+        inputBox.value = "";
+        previousUsers = [];
+      }
+    </script>
+  </body>
+</html>
