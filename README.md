@@ -1,6 +1,6 @@
 # SFoolsOS
 
-💻 SFoolsOS is a open-sourced browser based, linux style terminal html file, were you can play games, talk in chat and much more! All in one html file. Contribution is welcomed but we do not accept small contributions like readme changes or a small change in a function (and NO ai code).
+💻 SFoolsOS is a open-sourced browser based, linux style terminal html file, were you can play games, talk in chat and much more! All in one html file. Contribution is welcomed but we do not accept small contributions like readme changes or a small change in a function (and dont contribute slop ai code please 🙏).
 
 ## Table of Contents
 
