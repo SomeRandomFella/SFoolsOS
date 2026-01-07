@@ -23,7 +23,12 @@
     }
 
     body {
+      position: relative;
       background-color: var(--background-color);
+      width: 100vw;
+      min-height: 100vh;
+      overflow-y: auto;
+      overflow-x: hidden;
     }
 
     ::selection {
@@ -75,58 +80,92 @@
     .marginless {
       margin: 0 !important;
     }
+
+    #aha {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100vh;
+      z-index: -1;
+    }
+
+    #root {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+    }
+
+    .games {
+      display: inline-flex;
+      flex-direction: column;
+      border: 1px solid white;
+      min-width: 250px;
+    }
+
+    .header {
+      display: flex;
+      border-bottom: 1px solid white;
+    }
+
+    .header * {
+      margin: 0;
+      padding: 5px;
+    }
+
+    .header > :first-child {
+      display: flex;
+      justify-content: center;
+      border-right: 1px solid white;
+      width: 25px;
+    }
+
+    .game {
+      display: flex;
+      align-items: center;
+    }
+
+    .game * {
+      margin: 0;
+      padding: 5px;
+      border-bottom: 1px solid white;
+      width: 100%;
+      cursor: pointer;
+    }
+
+    .game:hover {
+      background-color: white;
+      color: black !important;
+    }
+
+    .game:hover * {
+      color: black;
+    }
+
+    .game:hover .id {
+      border-right: 1px solid black;
+    }
+
+    .id {
+      display: flex;
+      justify-content: center;
+      border-right: 1px solid white;
+      width: 30px;
+    }
   </style>
   <body>
+    <div id="aha"></div>
     <div id="root"></div>
-    <div id="chat-container" style="display: none">
-      <pre id="chat-header" style="margin: 20px 0 5px 0">
-[CHAT] <span id="chat-room">ID: </span> | <span id="chat-users">Users: 0</span>
-      </pre>
-      <div id="chat-messages" style="margin: 0; padding: 0"></div>
-      <div id="chat-input-container" style="display: flex; margin-top: 10px">
-        <pre style="margin: 0">&gt; </pre>
-        <input
-          type="text"
-          id="chat-input"
-          style="
-            flex: 1;
-            background: transparent;
-            color: white;
-            border: none;
-            outline: none;
-            font-family: inherit;
-            padding: 0;
-            margin: 0;
-          "
-        />
-      </div>
-    </div>
 
+    <!--global variables boy-->
     <script>
-      const firebaseConfig = {
-        apiKey: "AIzaSyDbrrl3aBuDzH4EW-OQpK4YI3lnGvkKE8Q",
-        authDomain: "sfoolsos.firebaseapp.com",
-        databaseURL: "https://sfoolsos-default-rtdb.firebaseio.com/",
-        projectId: "sfoolsos",
-        storageBucket: "sfoolsos.appspot.com",
-        messagingSenderId: "370745217828",
-        appId: "1:370745217828:web:5cd145286748267bc2d9b1",
-      };
-
-      firebase.initializeApp(firebaseConfig);
-      const db = firebase.database();
-
+      const CURRENT_VERSION = "0.2.0";
       const root = document.getElementById("root");
-      let pc = null;
-      let channel = null;
-      let roomId = null;
       let username = null;
       let fatalError = false;
       let currentDir = "root";
-      let html;
       let currentTerminalHandler = null;
-      let inChatMode = false;
-      let chatInputHandler = null;
+      let html;
       const rootLink =
         "https://cdn.jsdelivr.net/gh/picklechiplover23/htmlgames@latest/";
       const directories = ["root", "games", "themes"];
@@ -144,25 +183,31 @@
       };
 
       let gameWindow = null;
+    </script>
 
+    <script>
       const launchListener = (e) => {
         if (e.key === "Enter") {
-          gameWindow = window.open("", "_blank");
-          loadTyper();
-
-          if (gameWindow) {
-            gameWindow.document.open();
-            gameWindow.document.write(html);
-            gameWindow.document.close();
-
-            setTimeout(() => {
-              if (gameWindow.document.documentElement.requestFullscreen) {
-                gameWindow.document.documentElement.requestFullscreen();
-              }
-            }, 1000);
-          }
+          actuallyLaunch();
         }
       };
+
+      function actuallyLaunch() {
+        gameWindow = window.open("", "_blank");
+        loadTyper();
+
+        if (gameWindow) {
+          gameWindow.document.open();
+          gameWindow.document.write(html);
+          gameWindow.document.close();
+
+          setTimeout(() => {
+            if (gameWindow.document.documentElement.requestFullscreen) {
+              gameWindow.document.documentElement.requestFullscreen();
+            }
+          }, 1000);
+        }
+      }
 
       const commands = {
         help: (args) => {
@@ -175,10 +220,10 @@ ls <page> - see all the current files in the dir and use pages for dirs with lot
 cloak - cloaks the tab
 game - open HTML5 games by numbered id
 cat - open files
-chat <room_id> <username> - join a chat room
+chat - DICONTINUED FOR NOW!
 exit - exit chat room
 clear - clears console
-                                    `,
+                                                `,
               "info"
             );
           } else if (args[0] === "cd") {
@@ -193,7 +238,7 @@ all dirs:
 -games
 
 -themes
-                                     `,
+                                                 `,
               "info"
             );
           } else {
@@ -224,84 +269,13 @@ all dirs:
           }
         },
 
-        chat: async (args) => {
-          if (args.length < 2) {
-            log("Usage: chat ROOM_ID USERNAME", "warn");
-            loadTyper();
-            return;
-          }
-
-          const room = args[0];
-          const user = args[1];
-
-          username = user;
-          roomId = room;
-
-          if (currentTerminalHandler) {
-            document.removeEventListener("keydown", currentTerminalHandler);
-            currentTerminalHandler = null;
-          }
-
-          inChatMode = true;
-          document.getElementById("chat-container").style.display = "block";
-          document.getElementById("chat-room").textContent = "ID: " + roomId;
-
-          log("Press ESC to exit chat", "info");
-
-          try {
-            await joinRoom(roomId, username);
-
-            const inputBox = document.getElementById("chat-input");
-            inputBox.focus();
-
-            if (chatInputHandler) {
-              inputBox.removeEventListener("keydown", chatInputHandler);
-            }
-
-            chatInputHandler = (e) => {
-              e.stopPropagation();
-
-              if (e.key === "Escape") {
-                leaveChat();
-                log("Exited chat room", "info");
-                loadTyper();
-                return;
-              }
-
-              if (e.key === "Enter" && inputBox.value.trim() !== "") {
-                const msg = inputBox.value.trim();
-                const payload = JSON.stringify({ username, message: msg });
-
-                if (channel && channel.readyState === "open") {
-                  channel.send(payload);
-                  addMessage(username, msg);
-                } else {
-                  db.ref(`rooms/${roomId}/messages`).push({
-                    username: username,
-                    message: msg,
-                    timestamp: firebase.database.ServerValue.TIMESTAMP,
-                  });
-                  addMessage(username, msg);
-                }
-                inputBox.value = "";
-              }
-            };
-
-            inputBox.addEventListener("keydown", chatInputHandler);
-          } catch (err) {
-            addSystemMessage(`Chat error: ${err.message}`);
-            inChatMode = false;
-            loadTyper();
-          }
+        chat: () => {
+          log(
+            "chat has been discontinued for now, as it has a lot of improvements and had a lot of issues."
+          );
         },
 
         exit: () => {
-          if (inChatMode) {
-            leaveChat();
-            log("Exited chat room", "info");
-          } else {
-            log("Not in chat mode", "warn");
-          }
           loadTyper();
         },
 
@@ -314,18 +288,43 @@ all dirs:
           if (currentDir === "games") {
             loadJSON()
               .then((stuff) => {
+                const gameDiv = document.createElement("div");
+                gameDiv.classList.add("games");
+
+                gameDiv.innerHTML = `
+                              <div class="header">
+                              <p>id</p>
+                              <p>name</p>
+                            </div>
+                            `;
+
                 const pages = Object.keys(stuff).length;
                 const currentPage = args[0] || 1;
 
-                log(`id | name`);
                 if (stuff[currentPage]) {
                   const sortedGames = stuff[currentPage].sort((a, b) =>
                     a.name.localeCompare(b.name)
                   );
                   sortedGames.forEach((game) => {
-                    const thingidk = `${game.id}   |${game.name}`;
-                    log(thingidk, "margin");
+                    const gameidfk = document.createElement("div");
+                    gameidfk.classList.add("game");
+
+                    gameidfk.innerHTML = `
+                            <p class="id">${game.id}</p>
+                            <p>${game.name}</p>
+                          `;
+
+                    gameidfk.addEventListener("click", () => {
+                      loadGame(game.id).then((gameHtml) => {
+                        html = gameHtml;
+                        actuallyLaunch();
+                      });
+                    });
+
+                    gameDiv.appendChild(gameidfk);
                   });
+
+                  root.appendChild(gameDiv);
                   log(`(page ${currentPage} out of ${pages})`, "info");
                 } else {
                   log(`Page ${currentPage} not found`, "warn");
@@ -420,24 +419,41 @@ all dirs:
       });
 
       window.addEventListener("DOMContentLoaded", () => {
-        init();
+        init(true);
       });
 
-      function init() {
+      function init(versionCheck) {
         root.innerHTML = ``;
         log("DOM INITIALIZED.");
         setTimeout(() => {
           log("Loading modules...");
         }, 300);
-        setTimeout(() => {
+        setTimeout(async () => {
           log(String.raw`
    ______     ______   ______     ______     __         ______
   /\  ___\   /\  ___\ /\  __ \   /\  __ \   /\ \       /\  ___\
   \ \___  \  \ \  __\ \ \ \/\ \  \ \ \/\ \  \ \ \____  \ \___  \
    \/\_____\  \ \_\    \ \_____\  \ \_____\  \ \_____\  \/\_____\
     \/_____/   \/_/     \/_____/   \/_____/   \/_____/   \/_____/
-                                        `);
+                                                    `);
           log('for list of commands type "help"', "info");
+          if (versionCheck) {
+            try {
+              const res = await fetch(`${rootLink}version.txt`, {
+                cache: "no-cache",
+              });
+              const version = await res.text();
+
+              if (CURRENT_VERSION !== version) {
+                log(
+                  "warn: Outdated version! get the latest at https://github.com/SomeRandomFella/SFoolsOS for the latest features!",
+                  "warn"
+                );
+              }
+            } catch (err) {
+              log("error: Failed to get latest version.", "error");
+            }
+          }
           log("warn: this is a beta version, report issues to amir", "warn");
           loadTyper();
         }, 700);
@@ -483,8 +499,6 @@ all dirs:
       }
 
       function loadTyper() {
-        if (inChatMode) return;
-
         const typingDiv = document.createElement("div");
         typingDiv.classList.add("typer");
 
@@ -502,8 +516,6 @@ all dirs:
         const cursor = typing.querySelector(".cursor");
 
         const handleTerminalLine = (e) => {
-          if (inChatMode) return;
-
           if (e.key.length === 1) input.textContent += e.key;
           else if (e.key === "Backspace")
             input.textContent = input.textContent.slice(0, -1);
@@ -516,12 +528,19 @@ all dirs:
           }
         };
 
-        currentTerminalHandler = handleTerminalLine;
+        if (currentTerminalHandler) {
+          const kill = document.querySelector(".cursor");
+          kill.remove();
+          document.removeEventListener("keydown", currentTerminalHandler);
+        }
+
         document.addEventListener("keydown", handleTerminalLine);
+        currentTerminalHandler = handleTerminalLine;
 
         typingDiv.appendChild(nontype);
         typingDiv.appendChild(typing);
         root.appendChild(typingDiv);
+        window.scrollTo(0, document.body.scrollHeight);
       }
 
       async function loadJSON() {
@@ -587,217 +606,54 @@ all dirs:
         e.preventDefault();
         return false;
       });
+    </script>
 
-      async function joinRoom(existingRoomId, newUsername) {
-        roomId = existingRoomId;
-        username = newUsername;
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vanta@latest/dist/vanta.globe.min.js"></script>
 
-        const usersRef = db.ref(`rooms/${roomId}/users`);
-        const userRef = usersRef.child(username);
+    <script>
+      let vantaEffect = VANTA.GLOBE({
+        el: "#aha",
+        mouseControls: true,
+        touchControls: true,
+        gyroControls: false,
+        minHeight: 200.0,
+        minWidth: 200.0,
+        scale: 1.0,
+        scaleMobile: 1.0,
+        color: 0xdc0000,
+        backgroundColor: 0x0,
+      });
 
-        const roomSnapshot = await usersRef.get();
-        const existingUsers = roomSnapshot.exists()
-          ? Object.keys(roomSnapshot.val())
-          : [];
-        const isFirstUser = existingUsers.length === 0;
+      function resizeVanta() {
+        const rootHeight = document.getElementById("root").scrollHeight;
+        const ahaDiv = document.getElementById("aha");
 
-        await userRef.set({
-          joined: firebase.database.ServerValue.TIMESTAMP,
-          online: true,
-        });
+        ahaDiv.style.height = Math.max(rootHeight, window.innerHeight) + "px";
 
-        userRef.onDisconnect().remove();
-
-        const roomRef = db.ref(`rooms/${roomId}`);
-        usersRef.onDisconnect().remove();
-
-        usersRef.on("value", (snapshot) => {
-          if (!snapshot.exists()) {
-            roomRef.remove();
-          }
-        });
-
-        setupWebRTC(isFirstUser);
-        listenForUsers();
-        listenForMessages();
-      }
-
-      function leaveRoom() {
-        if (roomId && username) {
-          db.ref(`rooms/${roomId}/users/${username}`).remove();
-          if (pc) {
-            pc.close();
-          }
-          pc = null;
-          channel = null;
-          roomId = null;
-          username = null;
+        if (
+          vantaEffect &&
+          vantaEffect.renderer &&
+          vantaEffect.renderer.domElement
+        ) {
+          const canvas = vantaEffect.renderer.domElement;
+          canvas.style.position = "fixed";
+          canvas.style.top = "0";
+          canvas.style.left = "0";
+          canvas.style.width = "100vw";
+          canvas.style.height = "100vh";
         }
       }
 
-      function setupWebRTC(isCreator) {
-        pc = new RTCPeerConnection({
-          iceServers: [
-            { urls: "stun:stun.l.google.com:19302" },
-            { urls: "stun:stun1.l.google.com:19302" },
-          ],
-        });
+      const observer = new MutationObserver(resizeVanta);
+      observer.observe(document.getElementById("root"), {
+        childList: true,
+        subtree: true,
+      });
 
-        if (isCreator) {
-          channel = pc.createDataChannel("chat");
-          channel.onopen = () => {
-            addSystemMessage("Chat ready");
-          };
-          channel.onmessage = (e) => {
-            try {
-              const data = JSON.parse(e.data);
-              addMessage(data.username, data.message);
-            } catch {
-              addMessage("Peer", e.data);
-            }
-          };
-        } else {
-          pc.ondatachannel = (e) => {
-            channel = e.channel;
-            channel.onopen = () => {
-              addSystemMessage("Connected");
-            };
-            channel.onmessage = (e) => {
-              try {
-                const data = JSON.parse(e.data);
-                addMessage(data.username, data.message);
-              } catch {
-                addMessage("Peer", e.data);
-              }
-            };
-          };
-        }
+      window.addEventListener("resize", resizeVanta);
 
-        pc.onicecandidate = (event) => {
-          if (event.candidate) {
-            db.ref(`rooms/${roomId}/candidates/${username}_${Date.now()}`).set(
-              JSON.stringify(event.candidate)
-            );
-          }
-        };
-
-        pc.onconnectionstatechange = () => {
-          if (pc.connectionState === "connected") {
-            addSystemMessage("Peer connected");
-          } else if (pc.connectionState === "disconnected") {
-            addSystemMessage("Peer disconnected");
-          }
-        };
-
-        db.ref(`rooms/${roomId}/candidates`).on("child_added", (snapshot) => {
-          const candidate = JSON.parse(snapshot.val());
-          if (candidate && pc && pc.remoteDescription) {
-            pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(() => {});
-          }
-        });
-
-        if (isCreator) createOffer();
-        else listenForOffer();
-      }
-
-      async function createOffer() {
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-        db.ref(`rooms/${roomId}/offer`).set(JSON.stringify(offer));
-
-        db.ref(`rooms/${roomId}/answer`).on("value", (snapshot) => {
-          const answer = snapshot.val();
-          if (answer && pc) {
-            pc.setRemoteDescription(
-              new RTCSessionDescription(JSON.parse(answer))
-            ).catch(() => {});
-          }
-        });
-      }
-
-      async function listenForOffer() {
-        db.ref(`rooms/${roomId}/offer`).on("value", async (snapshot) => {
-          const offer = snapshot.val();
-          if (!offer || !pc) return;
-
-          await pc.setRemoteDescription(
-            new RTCSessionDescription(JSON.parse(offer))
-          );
-          const answer = await pc.createAnswer();
-          await pc.setLocalDescription(answer);
-          db.ref(`rooms/${roomId}/answer`).set(JSON.stringify(answer));
-        });
-      }
-
-      let previousUsers = [];
-      function listenForUsers() {
-        if (!roomId) return;
-        db.ref(`rooms/${roomId}/users`).on("value", (snapshot) => {
-          const usersData = snapshot.val();
-          const users = usersData ? Object.keys(usersData) : [];
-
-          document.getElementById("chat-users").textContent =
-            "Users: " + users.length;
-
-          users.forEach((user) => {
-            if (!previousUsers.includes(user) && previousUsers.length > 0) {
-              addSystemMessage(`${user} joined the room`);
-            }
-          });
-
-          previousUsers.forEach((user) => {
-            if (!users.includes(user)) {
-              addSystemMessage(`${user} left the room`);
-            }
-          });
-
-          previousUsers = users;
-        });
-      }
-
-      function listenForMessages() {
-        if (!roomId) return;
-        db.ref(`rooms/${roomId}/messages`).on("child_added", (snapshot) => {
-          const data = snapshot.val();
-          if (data && data.username !== username) {
-            addMessage(data.username, data.message);
-          }
-        });
-      }
-
-      function addMessage(sender, text) {
-        const messagesDiv = document.getElementById("chat-messages");
-        const msgDiv = document.createElement("pre");
-        msgDiv.style.margin = "0";
-        msgDiv.innerHTML = `<span style="color: lightgreen">@${sender}</span> ${text}`;
-        messagesDiv.appendChild(msgDiv);
-        window.scrollTo(0, document.body.scrollHeight);
-      }
-
-      function addSystemMessage(text) {
-        const messagesDiv = document.getElementById("chat-messages");
-        const msgDiv = document.createElement("pre");
-        msgDiv.style.margin = "0";
-        msgDiv.innerHTML = `<span style="color: yellow">* ${text}</span>`;
-        messagesDiv.appendChild(msgDiv);
-        window.scrollTo(0, document.body.scrollHeight);
-      }
-
-      function leaveChat() {
-        leaveRoom();
-        document.getElementById("chat-container").style.display = "none";
-        inChatMode = false;
-
-        const inputBox = document.getElementById("chat-input");
-        if (chatInputHandler) {
-          inputBox.removeEventListener("keydown", chatInputHandler);
-          chatInputHandler = null;
-        }
-
-        document.getElementById("chat-messages").innerHTML = "";
-        inputBox.value = "";
-        previousUsers = [];
-      }
+      setTimeout(resizeVanta, 100);
     </script>
   </body>
 </html>
