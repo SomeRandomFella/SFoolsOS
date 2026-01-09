@@ -159,7 +159,7 @@
 
     <!--global variables boy-->
     <script>
-      const CURRENT_VERSION = "0.2.0";
+      const CURRENT_VERSION = "0.3.0";
       const root = document.getElementById("root");
       let username = null;
       let fatalError = false;
@@ -167,7 +167,7 @@
       let currentTerminalHandler = null;
       let html;
       const rootLink =
-        "https://cdn.jsdelivr.net/gh/picklechiplover23/htmlgames@latest/";
+        "https://cdn.jsdelivr.net/gh/picklechiplover23/htmlgames@0c6c3d68764ff3558a4824be8af057f9a8414647/";
       const directories = ["root", "games", "themes"];
       const files = {
         root: [
@@ -216,7 +216,7 @@
               `
 help <command> - shows the list of commands or can help with certain commands
 cd <dir> - navigate to a section (e.g cd games)
-ls <page> - see all the current files in the dir and use pages for dirs with lots of files
+ls <page> - see all the current files in the dir and use pages for dirs with lots of files (do ls all to see all for games)
 cloak - cloaks the tab
 game - open HTML5 games by numbered id
 cat - open files
@@ -301,7 +301,32 @@ all dirs:
                 const pages = Object.keys(stuff).length;
                 const currentPage = args[0] || 1;
 
-                if (stuff[currentPage]) {
+                if (args[0] === "all") {
+                  const allGames = Object.values(stuff).flat();
+                  const gays = allGames.sort((a, b) =>
+                    a.name.localeCompare(b.name)
+                  );
+
+                  gays.forEach((gay) => {
+                    const gameidfk = document.createElement("div");
+                    gameidfk.classList.add("game");
+
+                    gameidfk.innerHTML = `
+                            <p class="id">${gay.id}</p>
+                            <p>${gay.name}</p>
+                          `;
+
+                    gameidfk.addEventListener("click", () => {
+                      loadGame(gay.id).then((gameHtml) => {
+                        html = gameHtml;
+                        actuallyLaunch();
+                      });
+                    });
+
+                    gameDiv.appendChild(gameidfk);
+                  });
+                  root.appendChild(gameDiv);
+                } else if (stuff[currentPage]) {
                   const sortedGames = stuff[currentPage].sort((a, b) =>
                     a.name.localeCompare(b.name)
                   );
@@ -442,9 +467,12 @@ all dirs:
               const res = await fetch(`${rootLink}version.txt`, {
                 cache: "no-cache",
               });
-              const version = await res.text();
+              const version = (await res.text()).trim();
 
               if (CURRENT_VERSION !== version) {
+                alert(
+                  `current version: ${CURRENT_VERSION} and newest version: ${version}`
+                );
                 log(
                   "warn: Outdated version! get the latest at https://github.com/SomeRandomFella/SFoolsOS for the latest features!",
                   "warn"
