@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
   <head>
     <meta charset="UTF-8" />
@@ -17,7 +17,8 @@
       --font-color: white;
     }
     * {
-      font-family: "DejaVu Sans Mono", "Liberation Mono", "Monospace", monospace;
+      font-family:
+        "DejaVu Sans Mono", "Liberation Mono", "Monospace", monospace;
       color: var(--font-color);
       margin: 0;
     }
@@ -39,6 +40,7 @@
     pre {
       line-height: 1.1;
       margin: 20px 0px !important;
+      overflow-wrap: break-word;
     }
 
     .typer {
@@ -77,6 +79,11 @@
       font-weight: bold;
     }
 
+    .support {
+      color: #dc44f0;
+      font-weight: bold;
+    }
+
     .marginless {
       margin: 0 !important;
     }
@@ -111,6 +118,31 @@
     .header * {
       margin: 0;
       padding: 5px;
+    }
+
+    ::-webkit-scrollbar {
+      width: 10px;
+      height: 10px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #111;
+      border-radius: 5px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background-color: #333;
+      border-radius: 5px;
+      border: 2px solid #111;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background-color: #555;
+    }
+
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: #333 #111;
     }
 
     .header > :first-child {
@@ -152,6 +184,50 @@
       border-right: 1px solid white;
       width: 30px;
     }
+
+    .update-log {
+      display: flex;
+      justify-content: center;
+      flex-direction: column;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      white-space: normal;
+      overflow-wrap: break-word;
+      max-width: 450px;
+      background-color: black;
+      border: 1px solid white;
+    }
+
+    #tip {
+      display: flex;
+      justify-content: center;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    #closeMe {
+      margin-top: 20px;
+      width: 100px;
+      background-color: black;
+      border: 1px solid white;
+      padding: 5px;
+      cursor: pointer;
+    }
+
+    #closeMe:hover {
+      background-color: white;
+      color: black;
+      border: 1px solid black;
+    }
+
+    #enoughWithTheWrappersSmh {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
   </style>
   <body>
     <div id="aha"></div>
@@ -159,15 +235,17 @@
 
     <!--global variables boy-->
     <script>
-      const CURRENT_VERSION = "0.3.0";
+      const CURRENT_VERSION = "0.3.1";
+      const lastUpdateLog = localStorage.getItem("update-log");
       const root = document.getElementById("root");
+      const updateLog = document.getElementById("update-log");
       let username = null;
       let fatalError = false;
       let currentDir = "root";
       let currentTerminalHandler = null;
       let html;
       const rootLink =
-        "https://cdn.jsdelivr.net/gh/picklechiplover23/htmlgames@0c6c3d68764ff3558a4824be8af057f9a8414647/";
+        "https://cdn.jsdelivr.net/gh/picklechiplover23/htmlgames@master/";
       const directories = ["root", "games", "themes"];
       const files = {
         root: [
@@ -209,6 +287,54 @@
         }
       }
 
+      async function showUpdateMenu(latestVersion) {
+        if (!lastUpdateLog || lastUpdateLog !== latestVersion) {
+          const updateAlert = document.createElement("dialog");
+          updateAlert.classList.add("update-log");
+
+          const res = await fetch(`${rootLink}update.json`);
+
+          if (!res.ok) {
+            log("update thingy fetch failed", "error");
+          }
+
+          const data = await res.json();
+
+          updateAlert.innerHTML = `
+            <div id="tip">
+              <h1>update v${data.version}</h1>
+              <p>${data.tip}</p>
+            </div>
+            <ul>
+            </ul> 
+            <div id="enoughWithTheWrappersSmh">
+              <button id="closeMe">close me</button>
+            </div>
+          `;
+
+          const listing = updateAlert.querySelector("ul");
+
+          data.list.forEach((list) => {
+            const specefic = document.createElement("li");
+
+            specefic.textContent = list;
+
+            listing.appendChild(specefic);
+          });
+
+          document.body.appendChild(updateAlert);
+          updateAlert.showModal();
+          localStorage.setItem("update-log", `${latestVersion}`);
+
+          const buttonClose = updateAlert.querySelector("#closeMe");
+
+          buttonClose.addEventListener("click", () => {
+            updateAlert.close();
+            updateAlert.remove();
+          });
+        }
+      }
+
       const commands = {
         help: (args) => {
           if (args.length === 0) {
@@ -224,7 +350,7 @@ chat - DICONTINUED FOR NOW!
 exit - exit chat room
 clear - clears console
                                                 `,
-              "info"
+              "info",
             );
           } else if (args[0] === "cd") {
             log(
@@ -239,7 +365,7 @@ all dirs:
 
 -themes
                                                  `,
-              "info"
+              "info",
             );
           } else {
             log(`no specific help for '${args[0]}'`, "info");
@@ -271,7 +397,7 @@ all dirs:
 
         chat: () => {
           log(
-            "chat has been discontinued for now, as it has a lot of improvements and had a lot of issues."
+            "chat has been discontinued for now, as it has a lot of improvements and had a lot of issues.",
           );
         },
 
@@ -304,7 +430,7 @@ all dirs:
                 if (args[0] === "all") {
                   const allGames = Object.values(stuff).flat();
                   const gays = allGames.sort((a, b) =>
-                    a.name.localeCompare(b.name)
+                    a.name.localeCompare(b.name),
                   );
 
                   gays.forEach((gay) => {
@@ -328,7 +454,7 @@ all dirs:
                   root.appendChild(gameDiv);
                 } else if (stuff[currentPage]) {
                   const sortedGames = stuff[currentPage].sort((a, b) =>
-                    a.name.localeCompare(b.name)
+                    a.name.localeCompare(b.name),
                   );
                   sortedGames.forEach((game) => {
                     const gameidfk = document.createElement("div");
@@ -384,14 +510,14 @@ all dirs:
           if (currentDir === "games") {
             log(
               "ERROR: cat cannot read html files, if you meant to open the file use 'game' instead",
-              "error"
+              "error",
             );
             return loadTyper();
           }
           const file = args[0];
           const currentFiles = files[currentDir];
           const theFile = currentFiles.find(
-            (f) => f.name + f.extension === file
+            (f) => f.name + f.extension === file,
           );
 
           if (!file || !theFile) {
@@ -469,13 +595,19 @@ all dirs:
               });
               const version = (await res.text()).trim();
 
+              if (!res.ok) {
+                throw new Error(`server responded with ${res.status}`);
+              }
+
+              showUpdateMenu(version);
+
               if (CURRENT_VERSION !== version) {
                 alert(
-                  `current version: ${CURRENT_VERSION} and newest version: ${version}`
+                  `current version: ${CURRENT_VERSION} and newest version: ${version}`,
                 );
                 log(
                   "warn: Outdated version! get the latest at https://github.com/SomeRandomFella/SFoolsOS for the latest features!",
-                  "warn"
+                  "warn",
                 );
               }
             } catch (err) {
@@ -503,6 +635,9 @@ all dirs:
             break;
           case "margin":
             consoleText.classList.add("marginless");
+            break;
+          case "support":
+            consoleText.classList.add("support");
             break;
           default:
             break;
@@ -573,8 +708,14 @@ all dirs:
 
       async function loadJSON() {
         try {
-          const response = await fetch(`${rootLink}games.json`);
+          const url = `${rootLink}games.json?v=${Date.now()}`;
+
+          const response = await fetch(url, {
+            cache: "no-store",
+          });
+
           if (!response.ok) throw new Error("network error");
+
           const data = await response.json();
           return data;
         } catch (err) {
@@ -593,42 +734,42 @@ all dirs:
         }
       }
 
-      (function () {
-        const debug = new Function("debugger");
-        setInterval(debug, 100);
-      })();
+      // (function () {
+      //   const debug = new Function("debugger");
+      //   setInterval(debug, 100);
+      // })();
 
-      document.addEventListener("keydown", function (e) {
-        if (e.keyCode === 123) {
-          e.preventDefault();
-          return false;
-        }
+      // document.addEventListener("keydown", function (e) {
+      //   if (e.keyCode === 123) {
+      //     e.preventDefault();
+      //     return false;
+      //   }
 
-        if (e.ctrlKey && e.shiftKey && e.keyCode === 73) {
-          e.preventDefault();
-          return false;
-        }
+      //   if (e.ctrlKey && e.shiftKey && e.keyCode === 73) {
+      //     e.preventDefault();
+      //     return false;
+      //   }
 
-        if (e.ctrlKey && e.shiftKey && e.keyCode === 74) {
-          e.preventDefault();
-          return false;
-        }
+      //   if (e.ctrlKey && e.shiftKey && e.keyCode === 74) {
+      //     e.preventDefault();
+      //     return false;
+      //   }
 
-        if (e.ctrlKey && e.shiftKey && e.keyCode === 67) {
-          e.preventDefault();
-          return false;
-        }
+      //   if (e.ctrlKey && e.shiftKey && e.keyCode === 67) {
+      //     e.preventDefault();
+      //     return false;
+      //   }
 
-        if (e.ctrlKey && e.keyCode === 85) {
-          e.preventDefault();
-          return false;
-        }
+      //   if (e.ctrlKey && e.keyCode === 85) {
+      //     e.preventDefault();
+      //     return false;
+      //   }
 
-        if (e.key === "F12") {
-          e.preventDefault();
-          return false;
-        }
-      });
+      //   if (e.key === "F12") {
+      //     e.preventDefault();
+      //     return false;
+      //   }
+      // });
 
       document.addEventListener("contextmenu", function (e) {
         e.preventDefault();
