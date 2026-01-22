@@ -292,7 +292,9 @@
           const updateAlert = document.createElement("dialog");
           updateAlert.classList.add("update-log");
 
-          const res = await fetch(`${rootLink}update.json`);
+          const res = await fetch(`${rootLink}update.json?t=${Date.now()}`, {
+            cache: "no-store",
+          });
 
           if (!res.ok) {
             log("update thingy fetch failed", "error");
