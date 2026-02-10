@@ -10,6 +10,19 @@
     />
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+    <script
+      async
+      src="https://www.googletagmanager.com/gtag/js?id=G-5FLJZ49NBT"
+    ></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+
+      gtag("config", "G-5FLJZ49NBT");
+    </script>
   </head>
   <style>
     :root {
@@ -40,6 +53,12 @@
     pre {
       line-height: 1.1;
       margin: 20px 0px !important;
+      overflow-wrap: break-word;
+    }
+
+    pre,
+    p {
+      white-space: pre-wrap;
       overflow-wrap: break-word;
     }
 
@@ -235,7 +254,8 @@
 
     <!--global variables boy-->
     <script>
-      const CURRENT_VERSION = "0.4.2";
+      const CURRENT_VERSION = "0.4.5";
+      let offlineMode;
       const lastUpdateLog = localStorage.getItem("update-log");
       const root = document.getElementById("root");
       const updateLog = document.getElementById("update-log");
@@ -246,7 +266,8 @@
       let html;
       const rootLink =
         "https://cdn.jsdelivr.net/gh/picklechiplover23/htmlgames@master/";
-      const directories = ["root", "games", "themes"];
+      const directories = ["root", "games", "gooner"];
+      // aint no one using this cuh
       const files = {
         root: [
           {
@@ -343,6 +364,7 @@
             log(
               `
 help <command> - shows the list of commands or can help with certain commands
+imreallydumb - for a toddler level guide
 cd <dir> - navigate to a section (e.g cd games)
 ls <page> - see all the current files in the dir and use pages for dirs with lots of files (do ls all to see all for games)
 cloak - cloaks the tab
@@ -409,6 +431,14 @@ all dirs:
 
         clear: () => {
           init();
+        },
+
+        imreallydumb: () => {
+          log(
+            'OK so to get to games (im assuming thats what ur here for) do cd games THEN ls all then click on a game u wanna play or do "game {id}"',
+            "info",
+          );
+          loadTyper();
         },
 
         ls: (args) => {
@@ -573,6 +603,14 @@ all dirs:
 
       window.addEventListener("DOMContentLoaded", () => {
         init(true);
+
+        window.addEventListener("unhandledrejection", (event) => {
+          log(event.reason, "error");
+        });
+
+        window.addEventListener("error", (event) => {
+          log(event.error || event.message, "error");
+        });
       });
 
       function init(versionCheck) {
@@ -828,4 +866,3 @@ all dirs:
     </script>
   </body>
 </html>
-
